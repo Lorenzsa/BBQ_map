@@ -1,1 +1,2 @@
 # BBQ_map
+Simple HTML Website showing a Leaflet Map. The Map provides an interactive map with useful points of interest for outdoor activities like BBQ, drinking water fountains, and shelters. This is archived by creating a POI Layer using the Overpass-API
