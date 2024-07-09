@@ -1,6 +1,6 @@
 // Initialize the map
 //const map = L.map('map').setView([49.006889, 8.403653], 18); //Karlsruhe
-const map = L.map('map').setView([48.77797, 8.44038], 15); 
+const map = L.map('map').setView([48.82420, 8.41230], 15);  //Testsite
 
 // Define attribution
 const attr_osm = '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
