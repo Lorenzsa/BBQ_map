@@ -34,14 +34,14 @@ var googleTerrain = L.tileLayer('http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={
 // Define POI types
 const poiTypes = [
     { name: 'BBQ Places', key: 'amenity', value: 'bbq', icon: 'img/BBQ.png' },
-    { name: 'Fountains', key: 'amenity', value: 'drinking_water', icon: 'img/fountain.png' },
+    { name: 'Fountains', key: 'amenity', value: 'drinking_water', icon: 'img/Fountain.png' },
     { name: 'Shelter', key: 'amenity', value: 'shelter', additionalTags: ['shelter_type~"basic_hut|lean_to|weather_shelter|rock_shelter"'], icon: 'img/Hut.png' },
     { name: 'Public Toilets', key: 'amenity', value: 'toilets', icon: 'img/toilet.png' },
     { name: 'Beach Volleyball', key: 'leisure', value: 'pitch', additionalTags: ['sport=beachvolleyball'], icon: 'img/volleyball.png' },
     { name: 'Second Hand Shops', key: 'shop', value: 'second_hand', icon: 'img/secondhand.png' },
-    { name: 'Firepit', key: 'leisure', value: 'firepit', icon: 'img/firepit.png' }
+    { name: 'Firepit', key: 'leisure', value: 'firepit', icon: 'img/firepit.png' },
+    { name: 'Tankstellen', key: 'amenity', value: 'fuel', icon: 'img/fuel_station.png', showOpeningHours: true }
 ];
-
 
 // Add a counter to POIs displayed 
 let totalPOICount = 0;
@@ -56,6 +56,55 @@ function updateGlobalMessage() {
     } else {
         hideGlobalMessage();
     }
+}
+
+// Function to parse and format opening hours
+function formatOpeningHours(openingHours) {
+    if (!openingHours) return 'Opening hours not available';
+    
+    // Handle 24/7 case
+    if (openingHours === '24/7') return 'Open 24/7';
+    
+    // Simple parsing for common formats
+    try {
+        // Replace common abbreviations
+        let formatted = openingHours
+            .replace(/Mo/g, 'Mon')
+            .replace(/Tu/g, 'Tue')
+            .replace(/We/g, 'Wed')
+            .replace(/Th/g, 'Thu')
+            .replace(/Fr/g, 'Fri')
+            .replace(/Sa/g, 'Sat')
+            .replace(/Su/g, 'Sun')
+            .replace(/-/g, ' - ')
+            .replace(/;/g, '<br>');
+        
+        return formatted;
+    } catch (e) {
+        return openingHours; // Return raw data if parsing fails
+    }
+}
+
+// Function to check if currently open (basic implementation)
+function getCurrentStatus(openingHours) {
+    if (!openingHours) return '';
+    if (openingHours === '24/7') return '<span style="color: green;">● Currently Open</span>';
+    
+    // This is a simplified check - a full implementation would need a proper opening hours parser
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Basic heuristic: if it contains common business hours, assume open during day
+    if (openingHours.includes('06:00') || openingHours.includes('07:00') || openingHours.includes('08:00')) {
+        if (currentHour >= 6 && currentHour <= 22) {
+            return '<span style="color: green;">● Likely Open</span>';
+        } else {
+            return '<span style="color: red;">● Likely Closed</span>';
+        }
+    }
+    
+    return '<span style="color: orange;">● Status Unknown</span>';
 }
 
 function showGlobalMessage(text) {
@@ -82,8 +131,7 @@ function hideGlobalMessage() {
     }
 }
 
-
-// Function to create a custom POI layer
+// Function to create a custom POI layer (updated)
 function createPOILayer(poiType) {
     let layerGroup = L.layerGroup();
     let isActive = false;
@@ -91,7 +139,7 @@ function createPOILayer(poiType) {
 
     function updatePOIs() {
         if (!isActive) return;
-        displayedPOICount = 0; // Reset the displayed POI count
+        displayedPOICount = 0;
     
         const bounds = map.getBounds();
         let tagFilters = `["${poiType.key}"="${poiType.value}"]`;
@@ -117,7 +165,6 @@ function createPOILayer(poiType) {
             .then(data => {
                 console.log(`Received data for ${poiType.name}:`, data);
                 
-                // Remove this layer's contribution to the global counts
                 totalPOICount -= localPOICount;
                 displayedPOICount -= layerGroup.getLayers().length;
                 
@@ -133,12 +180,35 @@ function createPOILayer(poiType) {
                 elements.forEach(e => {
                     let lat = e.lat || e.center.lat;
                     let lon = e.lon || e.center.lon;
+                    
+                    // Create popup content
+                    let popupContent = `<strong>${poiType.name}</strong>`;
+                    
+                    // Add name if available
+                    if (e.tags && e.tags.name) {
+                        popupContent += `<br><strong>${e.tags.name}</strong>`;
+                    }
+                    
+                    // Add brand if available (for gas stations)
+                    if (e.tags && e.tags.brand) {
+                        popupContent += `<br>Brand: ${e.tags.brand}`;
+                    }
+                    
+                    // Add opening hours if this POI type should show them
+                    if (poiType.showOpeningHours && e.tags && e.tags.opening_hours) {
+                        const status = getCurrentStatus(e.tags.opening_hours);
+                        const formattedHours = formatOpeningHours(e.tags.opening_hours);
+                        popupContent += `<br><br>${status}<br><strong>Opening Hours:</strong><br>${formattedHours}`;
+                    } else if (poiType.showOpeningHours) {
+                        popupContent += `<br><br><span style="color: gray;">Opening hours not available</span>`;
+                    }
+                    
                     let marker = L.marker([lat, lon], {
                         icon: L.icon({
                             iconUrl: poiType.icon,
                             iconSize: [32, 32]
                         })
-                    }).bindPopup(poiType.name);
+                    }).bindPopup(popupContent);
                     layerGroup.addLayer(marker);
                 });
                 
